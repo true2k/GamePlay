@@ -57,7 +57,7 @@ PhysicsCollisionShape::Type PhysicsCollisionShape::getType() const
 }
 
 PhysicsCollisionShape::Definition::Definition()
-    : type(SHAPE_NONE), isExplicit(false), centerAbsolute(false)
+    : type(SHAPE_NONE), isExplicit(false), centerAbsolute(false), meshSupportFunction(NULL)
 {
     memset(&data, 0, sizeof(data));
 }
@@ -436,7 +436,7 @@ PhysicsCollisionShape::Definition PhysicsCollisionShape::heightfield(HeightField
     return d;
 }
 
-PhysicsCollisionShape::Definition PhysicsCollisionShape::mesh(Mesh* mesh)
+PhysicsCollisionShape::Definition PhysicsCollisionShape::mesh(Mesh* mesh, void (*meshSupportFunction)(Mesh* ,size_t , void* , Vector3& ))
 {
     GP_ASSERT(mesh);
     mesh->addRef();
@@ -446,6 +446,49 @@ PhysicsCollisionShape::Definition PhysicsCollisionShape::mesh(Mesh* mesh)
     d.data.mesh = mesh;
     d.isExplicit = true;
     d.centerAbsolute = false;
+	d.meshSupportFunction = meshSupportFunction;
+    return d;
+}
+
+PhysicsCollisionShape::Definition PhysicsCollisionShape::cylinder()
+{
+    Definition d;
+    d.type = SHAPE_CYLINDER;
+    d.isExplicit = false;
+    d.centerAbsolute = false;
+    return d;
+}
+
+PhysicsCollisionShape::Definition PhysicsCollisionShape::cylinder(float radius, float height, const Vector3& center, bool absolute)
+{
+    Definition d;
+    d.type = SHAPE_CYLINDER;
+    d.data.cylinder.radius = radius;
+    d.data.cylinder.height = height;
+    memcpy(d.data.cylinder.center, &center.x, sizeof(float) * 3);
+    d.isExplicit = true;
+    d.centerAbsolute = absolute;
+    return d;
+}
+
+PhysicsCollisionShape::Definition PhysicsCollisionShape::cone( )
+{
+    Definition d;
+    d.type = SHAPE_CONE;
+    d.isExplicit = false;
+    d.centerAbsolute = false;
+    return d;
+}
+
+PhysicsCollisionShape::Definition PhysicsCollisionShape::cone(float radius, float height, const Vector3& center, bool absolute)
+{
+    Definition d;
+    d.type = SHAPE_CONE;
+    d.data.cylinder.radius = radius;
+    d.data.cylinder.height = height;
+    memcpy(d.data.cylinder.center, &center.x, sizeof(float) * 3);
+    d.isExplicit = true;
+    d.centerAbsolute = absolute;
     return d;
 }
 

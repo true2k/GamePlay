@@ -30,7 +30,9 @@ public:
         SHAPE_SPHERE,
         SHAPE_CAPSULE,
         SHAPE_MESH,
-        SHAPE_HEIGHTFIELD
+        SHAPE_HEIGHTFIELD,
+		SHAPE_CYLINDER,
+		SHAPE_CONE,
     };
 
     /**
@@ -97,6 +99,7 @@ public:
         struct BoxData { float center[3], extents[3]; };
         struct SphereData { float center[3]; float radius; };
         struct CapsuleData { float center[3]; float radius, height; };
+        struct CylinderData { float center[3]; float radius, height; };
 
         union
         {
@@ -110,6 +113,8 @@ public:
             HeightField* heightfield;
             /** @script{ignore} */
             Mesh* mesh;
+
+			CylinderData cylinder;
         } data;
 
         // Whether the shape definition is explicit, or if it is inherited from node bounds.
@@ -117,6 +122,8 @@ public:
 
         // Whether the center position is absolute or relative to the node position.
         bool centerAbsolute;
+
+		void (*meshSupportFunction)(Mesh* ,size_t , void* , Vector3& );
     };
 
     /**
@@ -233,8 +240,12 @@ public:
      *
      * @return Definition of a mesh shape.
      */
-    static PhysicsCollisionShape::Definition mesh(Mesh* mesh);
+    static PhysicsCollisionShape::Definition mesh(Mesh* mesh, void (*meshSupportFunction)(Mesh* ,size_t , void* , Vector3& ) = NULL);
 
+    static PhysicsCollisionShape::Definition cylinder( );
+	static PhysicsCollisionShape::Definition cylinder(float radius, float height, const Vector3& center = Vector3::zero(), bool absolute = false);
+    static PhysicsCollisionShape::Definition cone( );
+	static PhysicsCollisionShape::Definition cone(float radius, float height, const Vector3& center = Vector3::zero(), bool absolute = false);
 private:
 
     struct MeshData

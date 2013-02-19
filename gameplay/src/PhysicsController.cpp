@@ -863,7 +863,68 @@ PhysicsCollisionShape* PhysicsController::createShape(Node* node, const PhysicsC
             }
         }
         break;
+    case PhysicsCollisionShape::SHAPE_CYLINDER:
+        {
+            if (shape.isExplicit)
+            {
+                // Use the passed in capsule information.
+                collisionShape = createCylinder(shape.data.cylinder.radius, shape.data.cylinder.height, Vector3::one());
 
+                if (shape.centerAbsolute)
+                {
+                    computeCenterOfMass(Vector3(shape.data.capsule.center), Vector3::one(), centerOfMassOffset);
+                }
+                else
+                {
+                    BoundingBox box;
+                    getBoundingBox(node, &box);
+                    computeCenterOfMass(box.getCenter() + Vector3(shape.data.cylinder.center), scale, centerOfMassOffset);
+                }
+            }
+            else
+            {
+                // Compute a capsule shape that roughly matches the bounding box of the mesh.
+                BoundingBox box;
+                getBoundingBox(node, &box);
+                float radius = std::max((box.max.x - box.min.x) * 0.5f, (box.max.z - box.min.z) * 0.5f);
+                float height = box.max.y - box.min.y;
+                collisionShape = createCylinder(radius, height, scale);
+
+                computeCenterOfMass(box.getCenter(), scale, centerOfMassOffset);
+            }
+        }
+        break;
+    case PhysicsCollisionShape::SHAPE_CONE:
+        {
+            if (shape.isExplicit)
+            {
+                // Use the passed in capsule information.
+                collisionShape = createCone(shape.data.cylinder.radius, shape.data.cylinder.height, Vector3::one());
+
+                if (shape.centerAbsolute)
+                {
+                    computeCenterOfMass(Vector3(shape.data.capsule.center), Vector3::one(), centerOfMassOffset);
+                }
+                else
+                {
+                    BoundingBox box;
+                    getBoundingBox(node, &box);
+                    computeCenterOfMass(box.getCenter() + Vector3(shape.data.cylinder.center), scale, centerOfMassOffset);
+                }
+            }
+            else
+            {
+                // Compute a capsule shape that roughly matches the bounding box of the mesh.
+                BoundingBox box;
+                getBoundingBox(node, &box);
+                float radius = std::max((box.max.x - box.min.x) * 0.5f, (box.max.z - box.min.z) * 0.5f);
+                float height = box.max.y - box.min.y;
+                collisionShape = createCone(radius, height, scale);
+
+                computeCenterOfMass(box.getCenter(), scale, centerOfMassOffset);
+            }
+        }
+        break;
     case PhysicsCollisionShape::SHAPE_HEIGHTFIELD:
         {
             if (shape.isExplicit)
@@ -885,7 +946,10 @@ PhysicsCollisionShape* PhysicsController::createShape(Node* node, const PhysicsC
     case PhysicsCollisionShape::SHAPE_MESH:
         {
             // Build mesh from passed in shape.
-            collisionShape = createMesh(shape.data.mesh, scale);
+			if( shape.meshSupportFunction == NULL )
+	            collisionShape = createMesh(shape.data.mesh, scale);
+			else
+				collisionShape = createMeshWithVBO(shape.data.mesh, scale, shape.meshSupportFunction);
         }
         break;
 
@@ -996,6 +1060,76 @@ PhysicsCollisionShape* PhysicsController::createCapsule(float radius, float heig
     return shape;
 }
 
+PhysicsCollisionShape* PhysicsController::createCylinder(float radius, float height, const Vector3& scale)
+{
+    float girthScale = scale.x;
+    if (girthScale < scale.z)
+        girthScale = scale.z;
+    float scaledRadius = radius * girthScale;
+    float scaledHeight = height * scale.y;
+
+    PhysicsCollisionShape* shape;
+
+    // Return the cylinder shape from the cache if it already exists.
+    for (unsigned int i = 0; i < _shapes.size(); i++)
+    {
+        shape = _shapes[i];
+        GP_ASSERT(shape);
+        if (shape->getType() == PhysicsCollisionShape::SHAPE_CYLINDER)
+        {
+            btCylinderShape* cylinder = static_cast<btCylinderShape*>(shape->_shape);
+			btScalar r = cylinder->getRadius();
+			btVector3 v = cylinder->getHalfExtentsWithMargin();
+            if (cylinder && r == scaledRadius && v.getY() == scaledHeight)
+            {
+                shape->addRef();
+                return shape;
+            }
+        }
+    }
+
+    // Create the capsule shape and add it to the cache.
+    shape = new PhysicsCollisionShape(PhysicsCollisionShape::SHAPE_CYLINDER, bullet_new<btCylinderShape>(btVector3(radius, height, radius)));
+    _shapes.push_back(shape);
+
+    return shape;
+}
+
+PhysicsCollisionShape* PhysicsController::createCone(float radius, float height, const Vector3& scale)
+{
+    float girthScale = scale.x;
+    if (girthScale < scale.z)
+        girthScale = scale.z;
+    float scaledRadius = radius * girthScale;
+    float scaledHeight = height * scale.y;
+
+    PhysicsCollisionShape* shape;
+
+    // Return the cylinder shape from the cache if it already exists.
+    for (unsigned int i = 0; i < _shapes.size(); i++)
+    {
+        shape = _shapes[i];
+        GP_ASSERT(shape);
+        if (shape->getType() == PhysicsCollisionShape::SHAPE_CONE)
+        {
+            btConeShape* cylinder = static_cast<btConeShape*>(shape->_shape);
+			btScalar r = cylinder->getRadius();
+			btScalar h = cylinder->getHeight();
+            if (cylinder && r == scaledRadius && h == scaledHeight)
+            {
+                shape->addRef();
+                return shape;
+            }
+        }
+    }
+
+    // Create the capsule shape and add it to the cache.
+    shape = new PhysicsCollisionShape(PhysicsCollisionShape::SHAPE_CONE, bullet_new<btConeShape>(radius, height));
+    _shapes.push_back(shape);
+
+    return shape;
+}
+
 PhysicsCollisionShape* PhysicsController::createHeightfield(Node* node, HeightField* heightfield, Vector3* centerOfMassOffset)
 {
     GP_ASSERT(node);
@@ -1052,6 +1186,7 @@ PhysicsCollisionShape* PhysicsController::createHeightfield(Node* node, HeightFi
 
     return shape;
 }
+
 
 PhysicsCollisionShape* PhysicsController::createMesh(Mesh* mesh, const Vector3& scale)
 {
@@ -1206,6 +1341,158 @@ PhysicsCollisionShape* PhysicsController::createMesh(Mesh* mesh, const Vector3& 
 
     // Free the temporary mesh data now that it's stored in physics system.
     SAFE_DELETE(data);
+
+    return shape;
+}
+
+PhysicsCollisionShape* PhysicsController::createMeshWithVBO(Mesh* mesh, const Vector3& scale, void (*meshSupportFunction)(Mesh* ,size_t , void* , Vector3& ))
+{
+    GP_ASSERT(mesh);
+
+    // Only support meshes with triangle list primitive types.
+    bool triMesh = true;
+    if (mesh->getPartCount() > 0)
+    {
+        for (unsigned int i = 0; i < mesh->getPartCount(); ++i)
+        {
+            if (mesh->getPart(i)->getPrimitiveType() != Mesh::TRIANGLES)
+            {
+                triMesh = false;
+                break;
+            }
+        }
+    }
+    else
+    {
+        triMesh = mesh->getPrimitiveType() == Mesh::TRIANGLES;
+    }
+
+    if (!triMesh)
+    {
+        GP_ERROR("Mesh rigid bodies are currently only supported on meshes with TRIANGLES primitive type.");
+        return NULL;
+    }
+
+    // Create mesh data to be populated and store in returned collision shape.
+    PhysicsCollisionShape::MeshData* shapeMeshData = new PhysicsCollisionShape::MeshData();
+    shapeMeshData->vertexData = NULL;
+
+    // Copy the scaled vertex position data to the rigid body's local buffer.
+    Matrix m;
+    Matrix::createScale(scale, &m);
+	unsigned int vertexCount = mesh->getVertexCount();
+    shapeMeshData->vertexData = new float[vertexCount * 3];
+    Vector3 v;
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->getVertexBuffer());
+	void* data = glMapBuffer( GL_ARRAY_BUFFER, GL_READ_ONLY);
+    for (unsigned int i = 0; i < vertexCount; i++)
+    {
+		meshSupportFunction( mesh, i, data, v);
+        v *= m;
+        memcpy(&(shapeMeshData->vertexData[i * 3]), &v, sizeof(float) * 3);
+    }
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    btTriangleIndexVertexArray* meshInterface = bullet_new<btTriangleIndexVertexArray>();
+
+    size_t partCount = mesh->getPartCount();
+    if (partCount > 0)
+    {
+        PHY_ScalarType indexType = PHY_UCHAR;
+        int indexStride = 0;
+		MeshPart* meshPart = NULL;
+        for (size_t i = 0; i < partCount; i++)
+        {
+            meshPart = mesh->getPart(i);
+            GP_ASSERT(meshPart);
+
+            switch (meshPart->getIndexFormat())
+            {
+            case Mesh::INDEX8:
+                indexType = PHY_UCHAR;
+                indexStride = 1;
+                break;
+            case Mesh::INDEX16:
+                indexType = PHY_SHORT;
+                indexStride = 2;
+                break;
+            case Mesh::INDEX32:
+                indexType = PHY_INTEGER;
+                indexStride = 4;
+                break;
+            default:
+                GP_ERROR("Unsupported index format (%d).", meshPart->getIndexFormat());
+                SAFE_DELETE(meshInterface);
+                SAFE_DELETE_ARRAY(shapeMeshData->vertexData);
+                SAFE_DELETE(shapeMeshData);
+                return NULL;
+            }
+
+            // Move the index data into the rigid body's local buffer.
+            // Set it to NULL in the MeshPartData so it is not released when the data is freed.
+			IndexBufferHandle ibh = meshPart->getIndexBuffer();
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibh);
+			void* refIndexData = glMapBuffer( GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY);
+			
+			size_t byteCount = meshPart->getIndexCount() * indexStride;
+			unsigned char* indexData = new unsigned char[byteCount];
+			memcpy( indexData, refIndexData, byteCount);
+
+			glUnmapBuffer( GL_ELEMENT_ARRAY_BUFFER );
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+            shapeMeshData->indexData.push_back(indexData);
+
+            // Create a btIndexedMesh object for the current mesh part.
+            btIndexedMesh indexedMesh;
+            indexedMesh.m_indexType = indexType;
+			indexedMesh.m_numTriangles = meshPart->getIndexCount() / 3; // assume TRIANGLES primitive type
+            indexedMesh.m_numVertices = meshPart->getIndexCount();
+            indexedMesh.m_triangleIndexBase = (const unsigned char*)shapeMeshData->indexData[i];
+            indexedMesh.m_triangleIndexStride = indexStride*3;
+            indexedMesh.m_vertexBase = (const unsigned char*)shapeMeshData->vertexData;
+            indexedMesh.m_vertexStride = sizeof(float)*3;
+            indexedMesh.m_vertexType = PHY_FLOAT;
+
+            // Add the indexed mesh data to the mesh interface.
+            meshInterface->addIndexedMesh(indexedMesh, indexType);
+        }
+    }
+    else
+    {
+        // Generate index data for the mesh locally in the rigid body.
+        unsigned int* indexData = new unsigned int[mesh->getVertexCount()];
+        for (unsigned int i = 0; i < mesh->getVertexCount(); i++)
+        {
+            indexData[i] = i;
+        }
+        shapeMeshData->indexData.push_back((unsigned char*)indexData);
+
+        // Create a single btIndexedMesh object for the mesh interface.
+        btIndexedMesh indexedMesh;
+        indexedMesh.m_indexType = PHY_INTEGER;
+        indexedMesh.m_numTriangles = mesh->getVertexCount() / 3; // assume TRIANGLES primitive type
+        indexedMesh.m_numVertices = mesh->getVertexCount();
+        indexedMesh.m_triangleIndexBase = shapeMeshData->indexData[0];
+        indexedMesh.m_triangleIndexStride = sizeof(unsigned int);
+        indexedMesh.m_vertexBase = (const unsigned char*)shapeMeshData->vertexData;
+        indexedMesh.m_vertexStride = sizeof(float)*3;
+        indexedMesh.m_vertexType = PHY_FLOAT;
+
+        // Set the data in the mesh interface.
+        meshInterface->addIndexedMesh(indexedMesh, indexedMesh.m_indexType);
+    }
+
+    // Create our collision shape object and store shapeMeshData in it.
+    PhysicsCollisionShape* shape =
+        new PhysicsCollisionShape(PhysicsCollisionShape::SHAPE_MESH, bullet_new<btBvhTriangleMeshShape>(meshInterface, true), meshInterface);
+    shape->_shapeData.meshData = shapeMeshData;
+
+    _shapes.push_back(shape);
+
+    // Free the temporary mesh data now that it's stored in physics system.
+    
 
     return shape;
 }

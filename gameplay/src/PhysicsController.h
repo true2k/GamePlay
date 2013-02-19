@@ -436,7 +436,12 @@ private:
     // Creates a triangle mesh collision shape.
     PhysicsCollisionShape* createMesh(Mesh* mesh, const Vector3& scale);
 
-    // Destroys a collision shape created through PhysicsController
+	PhysicsCollisionShape* createMeshWithVBO(Mesh* mesh, const Vector3& scale, void (*meshSupportFunction)(Mesh* ,size_t , void* , Vector3& ));
+	PhysicsCollisionShape* createCylinder(float radius, float height, const Vector3& scale);
+	PhysicsCollisionShape* createCone(float radius, float height, const Vector3& scale);
+
+
+	// Destroys a collision shape created through PhysicsController
     void destroyShape(PhysicsCollisionShape* shape);
 
     // Legacy method for grayscale heightmaps: r + g + b, normalized.
@@ -548,6 +553,7 @@ private:
     std::map<PhysicsCollisionObject::CollisionPair, CollisionInfo> _collisionStatus;
     CollisionCallback* _collisionCallback;
 };
+
 
 }
 
