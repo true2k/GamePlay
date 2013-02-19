@@ -131,6 +131,9 @@ public:
      * @param rightToLeft Whether to draw text from right to left.
      */
     void drawText(const char* text, int x, int y, const Vector4& color, unsigned int size = 0, bool rightToLeft = false);
+	// add Draw Unicode Text
+	void drawText(const wchar_t* text, int x, int y, const Vector4& color, unsigned int size = 0, bool rightToLeft = false);
+
 
     /**
      * Draws the specified text in a solid color, with a scaling factor.
@@ -161,6 +164,8 @@ public:
      * @param clip A region to clip text within after applying justification to the viewport area.
      */
     void drawText(const char* text, const Rectangle& area, const Vector4& color, unsigned int size = 0, 
+                  Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool rightToLeft = false, const Rectangle* clip = NULL);
+    void drawText(const wchar_t* text, const Rectangle& area, const Vector4& color, unsigned int size = 0, 
                   Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool rightToLeft = false, const Rectangle* clip = NULL);
 
     /**
@@ -204,6 +209,7 @@ public:
      * @param heightOut Destination for the text's height.
      */
     void measureText(const char* text, unsigned int size, unsigned int* widthOut, unsigned int* heightOut);
+    void measureText(const wchar_t* text, unsigned int size, unsigned int* widthOut, unsigned int* heightOut);
 
     /**
      * Measures a string's bounding box after alignment, wrapping and clipping within a viewport.
@@ -219,17 +225,23 @@ public:
      */
     void measureText(const char* text, const Rectangle& clip, unsigned int size, Rectangle* out,
                      Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool ignoreClip = false);
+    void measureText(const wchar_t* text, const Rectangle& clip, unsigned int size, Rectangle* out,
+                     Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool ignoreClip = false);
 
-    /**
+	/**
      * Get an character index into a string corresponding to the character nearest the given location within the clip region.
      */
     int getIndexAtLocation(const char* text, const Rectangle& clip, unsigned int size, const Vector2& inLocation, Vector2* outLocation,
                            Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool rightToLeft = false);
 
+    int getIndexAtLocation(const wchar_t* text, const Rectangle& clip, unsigned int size, const Vector2& inLocation, Vector2* outLocation,
+                           Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool rightToLeft = false);
     /**
      * Get the location of the character at the given index.
      */
     void getLocationAtIndex(const char* text, const Rectangle& clip, unsigned int size, Vector2* outLocation, const unsigned int destIndex,
+                            Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool rightToLeft = false);
+    void getLocationAtIndex(const wchar_t* text, const Rectangle& clip, unsigned int size, Vector2* outLocation, const unsigned int destIndex,
                             Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool rightToLeft = false);
 
     /**
@@ -312,15 +324,24 @@ private:
 
     void getMeasurementInfo(const char* text, const Rectangle& area, unsigned int size, Justify justify, bool wrap, bool rightToLeft,
                             std::vector<int>* xPositions, int* yPosition, std::vector<unsigned int>* lineLengths);
+    void getMeasurementInfo(const wchar_t* text, const Rectangle& area, unsigned int size, Justify justify, bool wrap, bool rightToLeft,
+                            std::vector<int>* xPositions, int* yPosition, std::vector<unsigned int>* lineLengths);
 
     int getIndexOrLocation(const char* text, const Rectangle& clip, unsigned int size, const Vector2& inLocation, Vector2* outLocation,
                            const int destIndex = -1, Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool rightToLeft = false);
+    int getIndexOrLocation(const wchar_t* text, const Rectangle& clip, unsigned int size, const Vector2& inLocation, Vector2* outLocation,
+                           const int destIndex = -1, Justify justify = ALIGN_TOP_LEFT, bool wrap = true, bool rightToLeft = false);
 
     unsigned int getTokenWidth(const char* token, unsigned length, unsigned int size, float scale);
+    unsigned int getTokenWidth(const wchar_t* token, unsigned length, unsigned int size, float scale);
 
     unsigned int getReversedTokenLength(const char* token, const char* bufStart);
+    unsigned int getReversedTokenLength(const wchar_t* token, const wchar_t* bufStart);
 
     int handleDelimiters(const char** token, const unsigned int size, const int iteration, const int areaX, int* xPos, int* yPos, unsigned int* lineLength,
+                         std::vector<int>::const_iterator* xPositionsIt, std::vector<int>::const_iterator xPositionsEnd, unsigned int* charIndex = NULL,
+                         const Vector2* stopAtPosition = NULL, const int currentIndex = -1, const int destIndex = -1);
+    int handleDelimiters(const wchar_t** token, const unsigned int size, const int iteration, const int areaX, int* xPos, int* yPos, unsigned int* lineLength,
                          std::vector<int>::const_iterator* xPositionsIt, std::vector<int>::const_iterator xPositionsEnd, unsigned int* charIndex = NULL,
                          const Vector2* stopAtPosition = NULL, const int currentIndex = -1, const int destIndex = -1);
 
@@ -332,12 +353,15 @@ private:
     std::string _family;
     Style _style;
     unsigned int _size;
-    Glyph* _glyphs;
+    //Glyph* _glyphs;
+	std::vector<Glyph> _glyphs;
     unsigned int _glyphCount;
     Texture* _texture;
     SpriteBatch* _batch;
     Rectangle _viewport;
+
 };
+
 
 }
 

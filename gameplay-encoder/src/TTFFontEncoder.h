@@ -29,5 +29,6 @@ public:
  * @return 0 if successful, -1 if error.
  */
 int writeFont(const char* inFilePath, const char* outFilePath, unsigned int fontSize, const char* id, bool fontpreview);
+int writeFontEx(const char* inFilePath, const char* outFilePath, unsigned int fontSize, const char* id, bool fontpreview);
 
 }
